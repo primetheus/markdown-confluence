@@ -2,7 +2,6 @@ import { ConfluenceSettings, DEFAULT_SETTINGS } from "../Settings";
 import { DefaultSettingsLoader } from "./DefaultSettingsLoader";
 import { EnvironmentVariableSettingsLoader } from "./EnvironmentVariableSettingsLoader";
 import { ConfigFileSettingsLoader } from "./ConfigFileSettingsLoader";
-import { CommandLineArgumentSettingsLoader } from "./CommandLineArgumentSettingsLoader";
 import { SettingsLoader } from "./SettingsLoader";
 
 export class AutoSettingsLoader extends SettingsLoader {
@@ -13,7 +12,6 @@ export class AutoSettingsLoader extends SettingsLoader {
 			this.loaders.push(new DefaultSettingsLoader());
 			this.loaders.push(new ConfigFileSettingsLoader());
 			this.loaders.push(new EnvironmentVariableSettingsLoader());
-			this.loaders.push(new CommandLineArgumentSettingsLoader());
 		}
 	}
 

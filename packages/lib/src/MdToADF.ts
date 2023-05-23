@@ -4,13 +4,13 @@ import {
 } from "@atlaskit/editor-json-transformer";
 import { MarkdownTransformer } from "./MarkdownTransformer";
 import { traverse } from "@atlaskit/adf-utils/traverse";
-import { MarkdownFile } from "./adaptors";
-import { LocalAdfFile } from "./Publisher";
+// import { MarkdownFile } from "./adaptors";
+// import { LocalAdfFile } from "./Publisher";
 import { processConniePerPageConfig } from "./ConniePageConfig";
 import { p } from "@atlaskit/adf-utils/builders";
 import { MarkdownToConfluenceCodeBlockLanguageMap } from "./CodeBlockLanguageMap";
 import { isSafeUrl } from "@atlaskit/adf-schema";
-import { ConfluenceSettings } from "./Settings";
+// import { ConfluenceSettings } from "./Settings";
 import { cleanUpUrlIfConfluence } from "./ConfluenceUrlParser";
 
 const frontmatterRegex = /^\s*?---\n([\s\S]*?)\n---\s*/g;
@@ -140,15 +140,12 @@ function processADF(adf: JSONDocNode, confluenceBaseUrl: string): JSONDocNode {
 	return olivia as JSONDocNode;
 }
 
-export function convertMDtoADF(
-	file: MarkdownFile,
-	settings: ConfluenceSettings
-): LocalAdfFile {
-	file.contents = file.contents.replace(frontmatterRegex, "");
+export function convertMDtoADF(file: any, settings: any): any {
+	file.contents = file?.contents?.replace(frontmatterRegex, "");
 
 	const adfContent = parseMarkdownToADF(
 		file.contents,
-		settings.confluenceBaseUrl
+		settings?.confluenceBaseUrl
 	);
 
 	const results = processConniePerPageConfig(file, settings, adfContent);

@@ -1,32 +1,35 @@
-import { ConfluenceSettings } from "../Settings";
-import { BinaryFile, FilesToUpload, LoaderAdaptor, MarkdownFile } from ".";
+import path from "path";
+import { BinaryFile, FilesToUpload, MarkdownFile } from ".";
 import { lookup } from "mime-types";
-import { existsSync, lstatSync } from "fs";
-import * as fs from "fs/promises";
-import * as path from "path";
 import matter, { stringify } from "gray-matter";
 import {
 	ConfluencePerPageAllValues,
 	ConfluencePerPageConfig,
 	conniePerPageConfig,
 } from "../ConniePageConfig";
+import { ConfluenceSettings } from "../Settings";
 
-export class FileSystemAdaptor implements LoaderAdaptor {
+export class FileSystemAdaptor {
 	settings: ConfluenceSettings;
 
 	constructor(settings: ConfluenceSettings) {
 		this.settings = settings;
 
-		if (!existsSync(settings.contentRoot)) {
-			throw new Error(`'${settings.contentRoot}' doesn't exist.`);
+		if (!window || !window.fetch) {
+			throw new Error("The 'fetch' function is not available.");
 		}
-		if (!lstatSync(settings.contentRoot).isDirectory()) {
-			throw new Error(`'${settings.contentRoot}' is not a directory.`);
+
+		if (!settings.contentRoot || !document || !document.getElementById) {
+			throw new Error(
+				"The 'contentRoot' or 'document' is not available."
+			);
 		}
 	}
 
-	async getFileContent(absoluteFilePath: string) {
-		const fileContent = await fs.readFile(absoluteFilePath, "utf-8");
+	async getFileContent(absoluteFilePath: any) {
+		const response = await fetch(absoluteFilePath);
+		const fileContent = await response.text();
+
 		const { data, content } = matter(fileContent);
 		return { data, content };
 	}
@@ -35,36 +38,26 @@ export class FileSystemAdaptor implements LoaderAdaptor {
 		absoluteFilePath: string,
 		values: Partial<ConfluencePerPageAllValues>
 	): Promise<void> {
-		const actualAbsoluteFilePath = path.join(
-			this.settings.contentRoot,
-			absoluteFilePath
+		const actualAbsoluteFilePath = new URL(
+			absoluteFilePath,
+			this.settings.contentRoot
 		);
+
 		try {
-			if (!(await fs.stat(actualAbsoluteFilePath)).isFile()) {
+			const response = await fetch(actualAbsoluteFilePath);
+			if (!response.ok || response.status === 404) {
 				return;
 			}
-		} catch (error: unknown) {
-			if (error instanceof Error) {
-				console.warn(
-					"updateMarkdownValues",
-					JSON.stringify({
-						actualAbsoluteFilePath,
-						absoluteFilePath,
-						contentRoot: this.settings.contentRoot,
-						errorMessage: error.message,
-					})
-				);
-			} else {
-				console.warn(
-					"updateMarkdownValues:",
-					JSON.stringify({
-						actualAbsoluteFilePath,
-						contentRoot: this.settings.contentRoot,
-						absoluteFilePath,
-						error,
-					})
-				);
-			}
+		} catch (error) {
+			console.warn(
+				"updateMarkdownValues:",
+				JSON.stringify({
+					actualAbsoluteFilePath,
+					absoluteFilePath,
+					contentRoot: this.settings.contentRoot,
+					errorMessage: "",
+				})
+			);
 			return;
 		}
 
@@ -94,7 +87,14 @@ export class FileSystemAdaptor implements LoaderAdaptor {
 		}
 
 		const updatedData = stringify(fileContent, fm);
-		await fs.writeFile(actualAbsoluteFilePath, updatedData);
+
+		const requestOptions = {
+			method: "PUT",
+			headers: { "Content-Type": "text/markdown" },
+			body: updatedData,
+		};
+
+		await fetch(actualAbsoluteFilePath, requestOptions);
 	}
 
 	async loadMarkdownFile(absoluteFilePath: string): Promise<MarkdownFile> {
@@ -124,20 +124,39 @@ export class FileSystemAdaptor implements LoaderAdaptor {
 	async loadMarkdownFiles(folderPath: string): Promise<MarkdownFile[]> {
 		const files: MarkdownFile[] = [];
 
-		const entries = await fs.readdir(folderPath, {
-			withFileTypes: true,
-		});
-
-		for (const entry of entries) {
-			const absoluteFilePath = path.join(folderPath, entry.name);
-
-			if (entry.isFile() && path.extname(entry.name) === ".md") {
-				const file = await this.loadMarkdownFile(absoluteFilePath);
-				files.push(file);
-			} else if (entry.isDirectory()) {
-				const subFiles = await this.loadMarkdownFiles(absoluteFilePath);
-				files.push(...subFiles);
+		try {
+			const response = await fetch(folderPath);
+			if (!response.ok || response.status === 404) {
+				return files;
 			}
+
+			const entries = await response.json();
+
+			for (const entry of entries) {
+				const absoluteFilePath = new URL(
+					entry.name,
+					this.settings.contentRoot
+				).toString();
+
+				if (entry.isFile && path.extname(entry.name) === ".md") {
+					const file = await this.loadMarkdownFile(absoluteFilePath);
+					files.push(file);
+				} else if (entry.isDirectory) {
+					const subFiles = await this.loadMarkdownFiles(
+						absoluteFilePath
+					);
+					files.push(...subFiles);
+				}
+			}
+		} catch (error) {
+			console.warn(
+				"loadMarkdownFiles:",
+				JSON.stringify({
+					folderPath,
+					contentRoot: this.settings.contentRoot,
+					errorMessage: "",
+				})
+			);
 		}
 
 		return files;
@@ -162,7 +181,7 @@ export class FileSystemAdaptor implements LoaderAdaptor {
 					filesToPublish.push(file);
 				}
 			} catch {
-				//ignore
+				// ignore
 			}
 		}
 		return filesToPublish;
@@ -172,15 +191,18 @@ export class FileSystemAdaptor implements LoaderAdaptor {
 		searchPath: string,
 		referencedFromFilePath: string
 	): Promise<BinaryFile | false> {
-		const absoluteFilePath = await this.findClosestFile(
+		const absoluteFilePath = new URL(
 			searchPath,
-			path.dirname(
-				path.join(this.settings.contentRoot, referencedFromFilePath)
-			)
-		);
+			this.settings.contentRoot
+		).toString();
 
-		if (absoluteFilePath) {
-			const fileContents = await fs.readFile(absoluteFilePath);
+		try {
+			const response = await fetch(absoluteFilePath);
+			if (!response.ok || response.status === 404) {
+				return false;
+			}
+
+			const fileContents = await response.arrayBuffer();
 
 			const mimeType =
 				lookup(path.extname(absoluteFilePath)) ||
@@ -194,73 +216,17 @@ export class FileSystemAdaptor implements LoaderAdaptor {
 				filename: path.basename(absoluteFilePath),
 				mimeType: mimeType,
 			};
+		} catch (error) {
+			console.warn(
+				"readBinary:",
+				JSON.stringify({
+					searchPath,
+					referencedFromFilePath,
+					contentRoot: this.settings.contentRoot,
+					errorMessage: "",
+				})
+			);
+			return false;
 		}
-
-		return false;
-	}
-
-	private async findClosestFile(
-		fileName: string,
-		startingDirectory: string
-	): Promise<string | null> {
-		const potentialAbsolutePathForFileName = path.join(
-			startingDirectory,
-			fileName
-		);
-		if (await isFile(potentialAbsolutePathForFileName)) {
-			return potentialAbsolutePathForFileName;
-		}
-
-		const matchingFiles: string[] = [];
-		const directoriesToSearch: string[] = [startingDirectory];
-
-		while (directoriesToSearch.length > 0) {
-			const currentDirectory = directoriesToSearch.shift();
-			if (!currentDirectory) {
-				continue;
-			}
-
-			const entries = await fs.readdir(currentDirectory, {
-				withFileTypes: true,
-			});
-
-			for (const entry of entries) {
-				const fullPath = path.join(currentDirectory, entry.name);
-
-				if (
-					entry.isFile() &&
-					entry.name.toLowerCase() === fileName.toLowerCase()
-				) {
-					matchingFiles.push(fullPath);
-				} else if (
-					entry.isDirectory() &&
-					fullPath.startsWith(this.settings.contentRoot)
-				) {
-					directoriesToSearch.push(fullPath);
-				}
-			}
-		}
-
-		const firstMatchedFile = matchingFiles[0];
-		if (firstMatchedFile) {
-			return firstMatchedFile;
-		}
-
-		const parentDirectory = path.dirname(startingDirectory);
-
-		if (parentDirectory === startingDirectory) {
-			return null;
-		}
-
-		return await this.findClosestFile(fileName, parentDirectory);
-	}
-}
-
-async function isFile(filePath: string): Promise<boolean> {
-	try {
-		const stats = await fs.stat(filePath);
-		return stats.isFile();
-	} catch (error: unknown) {
-		return false; // Just return false instead of rethrowing any other errors.
 	}
 }
