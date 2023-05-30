@@ -25,6 +25,7 @@ export function parseMarkdownToADF(
 	const prosenodes = transformer.parse(markdown);
 	const adfNodes = serializer.encode(prosenodes);
 	const nodes = processADF(adfNodes, confluenceBaseUrl);
+	console.log("nodes", nodes);
 	return nodes;
 }
 
@@ -147,12 +148,58 @@ export function convertMDtoADF(file: any, settings: any): any {
 		file.contents,
 		settings?.confluenceBaseUrl
 	);
+	const modifiedContent = processTaskList(adfContent);
 
-	const results = processConniePerPageConfig(file, settings, adfContent);
+	const results = processConniePerPageConfig(file, settings, modifiedContent);
 
 	return {
 		...file,
 		...results,
-		contents: adfContent,
+		contents: modifiedContent,
 	};
+}
+
+function processTaskList(content: JSONDocNode): JSONDocNode {
+	traverse(content, {
+		listItem: (node, parent) => {
+			if (node.content && node.content.length === 1) {
+				const paragraph = node.content[0];
+				if (
+					paragraph?.type === "paragraph" &&
+					paragraph.content &&
+					paragraph.content.length === 1
+				) {
+					const textNode = paragraph.content[0];
+					if (
+						textNode?.type === "text" &&
+						textNode.text &&
+						textNode.text.startsWith("[ ] ")
+					) {
+						const taskItem = {
+							type: "taskItem",
+							attrs: {
+								state: "TODO",
+								localId: "",
+							},
+							content: [
+								{
+									type: "text",
+									text: textNode.text.substring(4),
+								},
+							],
+						};
+						if (Array.isArray(parent)) {
+							const index = parent.indexOf(node);
+							if (index !== -1) {
+								parent[index] = taskItem;
+							}
+						}
+					}
+				}
+			}
+			return node;
+		},
+	});
+
+	return content;
 }
