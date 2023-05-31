@@ -144,16 +144,45 @@ function renderADFContent(
 		case "panel": {
 			const panelType =
 				element.attrs && element.attrs["panelType"]
-					? element.attrs["panelType"]
+					? element.attrs["panelType"].toLowerCase()
 					: "info";
-			const result = renderChildrenResult
-				.split("\n")
-				.map((line) => (line ? `> ${line}\n` : line))
-				.join("");
 
-			const headerRow = `> [!${panelType}]\n`;
-			return headerRow + result;
+			if (panelType === "custom") {
+				const createADFCodeBlock = renderCodeBlock(
+					"adf",
+					JSON.stringify(element)
+				);
+				return createADFCodeBlock;
+			} else {
+				const result = renderChildrenResult
+					.split("\n")
+					.map((line) => (line ? `> ${line}\n` : line))
+					.join("");
+				const headerRow = `> [!${panelType}]\n`;
+				return headerRow + result;
+			}
 		}
+
+		// case "panel": {
+		// 	const panelType = element.attrs && element.attrs["panelType"]
+		// 					? element.attrs["panelType"]
+		// 					: "info";
+		// 	const lines = renderChildrenResult.split("\n");
+		// 	const firstLine = lines.shift(); // get the first line
+		//
+		// 	// Trim any empty lines from the end of lines array
+		// 	while (lines.length > 0 && lines[lines.length - 1] === '') {
+		// 			lines.pop();
+		// 	}
+		//
+		// 	const otherLines = lines
+		// 			.map(line => line === '' ? '>' : '> ' + line) // add prefix '>' to each line
+		// 			.join("\n"); // re-join the remaining lines
+		//
+		// 	const headerRow = `> [!${panelType}] ${firstLine}\n`; // append first line to the header
+		// 	return headerRow + otherLines + '\n'; // return headerRow, the remaining lines, and a trailing newline
+		// }
+
 		case "expand": {
 			const title =
 				element.attrs && element.attrs["title"]

@@ -25,12 +25,51 @@ export function parseMarkdownToADF(
 	const prosenodes = transformer.parse(markdown);
 	const adfNodes = serializer.encode(prosenodes);
 	const nodes = processADF(adfNodes, confluenceBaseUrl);
-	console.log("nodes", nodes);
 	return nodes;
 }
 
 function processADF(adf: JSONDocNode, confluenceBaseUrl: string): JSONDocNode {
 	const olivia = traverse(adf, {
+		// fixing expands
+		expand: (node, _parent) => {
+			const content = node?.content;
+
+			if (
+				content &&
+				content[0]?.content &&
+				content[0]?.content[0]?.type === "text"
+			) {
+				content[0].content.splice(0, 2);
+			}
+
+			return node;
+		},
+
+		// fixing panels
+		panel: (node, _parent) => {
+			if (
+				node.attrs &&
+				node.content &&
+				node.content[0]?.content && // use optional chaining
+				node.content[0]?.content[0]?.type === "text" // use optional chaining
+			) {
+				const text = node.content[0]?.content[0]?.text; // use optional chaining
+				const panelTypes = [
+					"Error",
+					"Success",
+					"Info",
+					"Warning",
+					"Note",
+				];
+				if (text && panelTypes.includes(text)) {
+					// check if text is defined before calling includes
+					node.attrs["panelType"] = text.toLowerCase();
+					// This will remove the first two elements of the array
+					node.content[0]?.content.splice(0, 2); // use optional chaining
+				}
+			}
+			return node;
+		},
 		text: (node, _parent) => {
 			if (
 				!(
@@ -95,6 +134,69 @@ function processADF(adf: JSONDocNode, confluenceBaseUrl: string): JSONDocNode {
 			node.attrs = { order: 1 };
 			return node;
 		},
+		bulletList: (node: any, _parent: any): any => {
+			let isTaskList = false;
+			if (node.content) {
+				node.content = node.content.map(
+					(listItem: any, index: number) => {
+						if (
+							listItem &&
+							listItem.content &&
+							listItem.content[0] &&
+							listItem.content[0].type === "paragraph" &&
+							listItem.content[0].content &&
+							listItem.content[0].content[0] &&
+							listItem.content[0].content[0].type === "text"
+						) {
+							const text = listItem.content[0].content[0].text;
+							if (text.startsWith("[ ] ")) {
+								isTaskList = true;
+								return {
+									type: "taskItem",
+									attrs: {
+										state: "TODO",
+										localId: (index + 1).toString(),
+									},
+									content: [
+										{
+											type: "text",
+											text: text.slice(4),
+										},
+									],
+								};
+							} else if (text.startsWith("[x] ")) {
+								isTaskList = true;
+								return {
+									type: "taskItem",
+									attrs: {
+										state: "DONE",
+										localId: (index + 1).toString(),
+									},
+									content: [
+										{
+											type: "text",
+											text: text.slice(4),
+										},
+									],
+								};
+							}
+						}
+						return listItem;
+					}
+				);
+			}
+			if (isTaskList) {
+				return {
+					type: "taskList",
+					attrs: {
+						localId: "",
+					},
+					content: node.content,
+				};
+			} else {
+				return node;
+			}
+		},
 		codeBlock: (node, _parent) => {
 			if (!node || !node.attrs) {
 				return;
@@ -148,58 +250,12 @@ export function convertMDtoADF(file: any, settings: any): any {
 		file.contents,
 		settings?.confluenceBaseUrl
 	);
-	const modifiedContent = processTaskList(adfContent);
 
-	const results = processConniePerPageConfig(file, settings, modifiedContent);
+	const results = processConniePerPageConfig(file, settings, adfContent);
 
 	return {
 		...file,
 		...results,
-		contents: modifiedContent,
+		contents: adfContent,
 	};
-}
-
-function processTaskList(content: JSONDocNode): JSONDocNode {
-	traverse(content, {
-		listItem: (node, parent) => {
-			if (node.content && node.content.length === 1) {
-				const paragraph = node.content[0];
-				if (
-					paragraph?.type === "paragraph" &&
-					paragraph.content &&
-					paragraph.content.length === 1
-				) {
-					const textNode = paragraph.content[0];
-					if (
-						textNode?.type === "text" &&
-						textNode.text &&
-						textNode.text.startsWith("[ ] ")
-					) {
-						const taskItem = {
-							type: "taskItem",
-							attrs: {
-								state: "TODO",
-								localId: "",
-							},
-							content: [
-								{
-									type: "text",
-									text: textNode.text.substring(4),
-								},
-							],
-						};
-						if (Array.isArray(parent)) {
-							const index = parent.indexOf(node);
-							if (index !== -1) {
-								parent[index] = taskItem;
-							}
-						}
-					}
-				}
-			}
-			return node;
-		},
-	});
-
-	return content;
 }
