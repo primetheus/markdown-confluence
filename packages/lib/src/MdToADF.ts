@@ -71,6 +71,30 @@ function processADF(adf: JSONDocNode, confluenceBaseUrl: string): JSONDocNode {
 			return node;
 		},
 		text: (node, _parent) => {
+			// fixing mentions
+
+			if (
+				node.marks &&
+				node.marks[0] &&
+				node.marks[0].type === "link" &&
+				node.marks[0].attrs &&
+				"href" in node.marks[0].attrs &&
+				(node.marks[0].attrs["href"] as string).startsWith("mention:")
+			) {
+				const mentionId = (node.marks[0].attrs["href"] as string).split(
+					":"
+				)[1];
+				const mentionText = node.text;
+
+				return {
+					type: "mention",
+					attrs: {
+						id: mentionId,
+						text: `${mentionText}`,
+					},
+				};
+			}
+
 			if (
 				!(
 					node.marks &&

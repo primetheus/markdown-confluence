@@ -204,9 +204,10 @@ function renderADFContent(
 			const text =
 				element.attrs && element.attrs["text"]
 					? element.attrs["text"]
-					: undefined;
+					: " ";
 			return `[[mention:${userId}|${text}]]`;
 		}
+
 		case "taskItem": {
 			const taskState =
 				element.attrs && element.attrs["state"]
@@ -215,25 +216,37 @@ function renderADFContent(
 			const taskStateMarkdown = taskState === "TODO" ? " " : "x";
 			return `- [${taskStateMarkdown}] ${renderChildrenResult}\n`;
 		}
-		case "emoji": {
-			const emojiId =
-				element.attrs && element.attrs["id"]
-					? element.attrs["id"]
-					: undefined;
-
-			let shortName =
-				element.attrs &&
-				element.attrs["shortName"] &&
-				typeof element.attrs["shortName"] === "string"
-					? element.attrs["shortName"]
-					: "";
-
-			if (shortName) {
-				shortName = `|${shortName.replaceAll(":", "")}`;
-			}
-
-			return `:${emojiId}${shortName}:`;
-		}
+		// case "emoji": {
+		// 	const emojiId =
+		// 		element.attrs && element.attrs["id"]
+		// 			? element.attrs["id"]
+		// 			: undefined;
+		//
+		// 	let shortName =
+		// 		element.attrs &&
+		// 		element.attrs["shortName"] &&
+		// 		typeof element.attrs["shortName"] === "string"
+		// 			? element.attrs["shortName"]
+		// 			: "";
+		//
+		// 	let text =
+		// 		element.attrs &&
+		// 		element.attrs["text"] &&
+		// 		typeof element.attrs["text"] === "string"
+		// 			? element.attrs["text"]
+		// 			: "";
+		//
+		// 	if (shortName) {
+		// 		shortName = `|${shortName.replaceAll(":", "")}`;
+		// 	}
+		//
+		// 	if (text){
+		// 		text = `|${text}`;
+		//
+		// 	}
+		//
+		// 	return `:${emojiId}${text}${shortName}:`;
+		// }
 		case "inlineCard": {
 			const inlineCardUrl =
 				element.attrs && element.attrs["url"]
