@@ -205,7 +205,7 @@ function renderADFContent(
 				element.attrs && element.attrs["text"]
 					? element.attrs["text"]
 					: " ";
-			return `[[mention:${userId}|${text}]]`;
+			return `[[mention:${userId}|${text}]] `;
 		}
 
 		case "taskItem": {
