@@ -83,7 +83,7 @@ function renderADFContent(
 			if (parent.type.startsWith("table")) {
 				return renderChildrenResult;
 			}
-			return renderChildrenResult + "\n";
+			return "\n" + renderChildrenResult + "\n";
 		}
 		case "text": {
 			return renderTextMarks(element);
