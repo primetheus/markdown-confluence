@@ -12,10 +12,8 @@ export function renderADFDoc(adfDoc: JSONDocNode) {
 			return prev;
 		}
 		if (result instanceof Error) {
-			const createADFCodeBlock = renderCodeBlock(
-				"adf",
-				JSON.stringify(curr)
-			);
+			const createADFCodeBlock =
+				renderCodeBlock("adf", JSON.stringify(curr)) + "\n";
 			return [...prev, createADFCodeBlock];
 		}
 		return [...prev, result];
@@ -83,7 +81,7 @@ function renderADFContent(
 			if (parent.type.startsWith("table")) {
 				return renderChildrenResult;
 			}
-			return "\n" + renderChildrenResult + "\n";
+			return renderChildrenResult + "\n";
 		}
 		case "text": {
 			return renderTextMarks(element);
@@ -100,14 +98,14 @@ function renderADFContent(
 					? parseInt(element.attrs["level"])
 					: 1;
 			const beforeText = "#".repeat(headingLevel);
-			return beforeText + " " + renderChildrenResult;
+			return beforeText + " " + renderChildrenResult + "\n";
 		}
 		case "codeBlock": {
 			const language =
 				element.attrs && element.attrs["language"]
 					? element.attrs["language"]
 					: "";
-			return renderCodeBlock(language, renderChildrenResult);
+			return renderCodeBlock(language, renderChildrenResult) + "\n";
 		}
 		case "taskList":
 		case "bulletList":
@@ -148,11 +146,7 @@ function renderADFContent(
 					: "info";
 
 			if (panelType === "custom") {
-				const createADFCodeBlock = renderCodeBlock(
-					"adf",
-					JSON.stringify(element)
-				);
-				return createADFCodeBlock;
+				return renderCodeBlock("adf", JSON.stringify(element)) + "\n";
 			} else {
 				const result = renderChildrenResult
 					.split("\n")
@@ -255,7 +249,7 @@ function renderADFContent(
 			return `[${inlineCardUrl}](${inlineCardUrl})`;
 		}
 		case "table": {
-			return renderTable(element);
+			return renderTable(element) + "\n";
 		}
 		case "tableHeader":
 		case "tableRow":
