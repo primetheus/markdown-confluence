@@ -82,7 +82,7 @@ function processADF(adf: JSONDocNode, confluenceBaseUrl: string): JSONDocNode {
 				(node.marks[0].attrs["href"] as string).startsWith("mention:")
 			) {
 				const mentionId = (node.marks[0].attrs["href"] as string).split(
-					":"
+					"mention:"
 				)[1];
 				const mentionText = node.text;
 
